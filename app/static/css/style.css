@@ -1,0 +1,167 @@
+/* Custom UI styles for MediTrack */
+:root {
+  --primary-color: #0d6efd;
+  --success-color: #198754;
+  --danger-color: #dc3545;
+  --warning-color: #ffc107;
+  --info-color: #0dcaf0;
+  --card-radius: 1.25rem;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #f8fafc;
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main.container {
+  flex: 1 0 auto;
+}
+
+footer {
+  flex-shrink: 0;
+}
+
+/* Navbar Brand & Links */
+.navbar-brand {
+  letter-spacing: -0.5px;
+}
+
+/* Medication Cards */
+.medication-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  background: #ffffff;
+}
+
+.medication-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+}
+
+.medication-card.is-archived {
+  opacity: 0.72;
+  background-color: #f8fafc;
+}
+
+/* Big Touch-Friendly Steppers (+ / -) */
+.btn-stepper {
+  width: 60px;
+  height: 60px;
+  font-size: 1.5rem;
+  border-radius: 50% !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  border-width: 2px;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.btn-stepper:active {
+  transform: scale(0.90);
+}
+
+.btn-stepper:focus {
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.25);
+}
+
+/* Dosage Number Badge */
+.dosage-number {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+/* Progress bar */
+.adherence-progress-container {
+  height: 8px;
+  border-radius: 9999px;
+  background-color: #e2e8f0;
+  overflow: hidden;
+}
+
+.progress-bar {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+}
+
+/* Genre Tag Badges */
+.genre-badge {
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  padding: 0.35rem 0.65rem;
+  border-radius: 50rem;
+}
+
+/* Time of day badges */
+.time-badge {
+  font-size: 0.72rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Low Stock Alert Cards */
+.stock-warning-box {
+  border-left: 4px solid var(--danger-color);
+}
+
+/* Floating Toast notifications */
+.toast-container {
+  z-index: 1090;
+}
+
+/* Print Styles for Doctor / Medical Visit Summary */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 12pt;
+  }
+
+  .navbar,
+  .btn,
+  .no-print,
+  .alert,
+  footer {
+    display: none !important;
+  }
+
+  .container {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .card {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    margin-bottom: 1.5rem !important;
+  }
+
+  .print-header {
+    display: block !important;
+    border-bottom: 2px solid #333;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    border: 1px solid #999 !important;
+    padding: 6px 10px !important;
+  }
+}

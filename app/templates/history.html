@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}Dose History & Audit Logs - MediTrack{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold mb-1 text-dark">
+            <i class="bi bi-clock-history text-primary me-2"></i>Dose History & Audit Logs
+        </h2>
+        <p class="text-muted mb-0">Complete chronological records of all doses logged, reversed, and inventory refills.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('main.export_history_excel', profile_id=selected_profile_id or '', action=selected_action or '') }}" class="btn btn-success rounded-pill px-3 fw-semibold shadow-sm">
+            <i class="bi bi-file-earmark-excel-fill me-1"></i> Download Excel (.xlsx)
+        </a>
+        <a href="{{ url_for('main.export_history_csv', profile_id=selected_profile_id or '', action=selected_action or '') }}" class="btn btn-outline-primary rounded-pill px-3 fw-semibold">
+            <i class="bi bi-filetype-csv me-1"></i> Download CSV
+        </a>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Summary Metric Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+            <div class="d-flex align-items-center">
+                <div class="p-3 rounded-circle bg-success bg-opacity-10 text-success me-3">
+                    <i class="bi bi-check2-all fs-4"></i>
+                </div>
+                <div>
+                    <div class="fs-4 fw-bolder text-dark">{{ total_doses_logged }}</div>
+                    <div class="text-muted small">Total Doses Taken</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+            <div class="d-flex align-items-center">
+                <div class="p-3 rounded-circle bg-primary bg-opacity-10 text-primary me-3">
+                    <i class="bi bi-calendar2-check fs-4"></i>
+                </div>
+                <div>
+                    <div class="fs-4 fw-bolder text-dark">{{ today_doses_count }}</div>
+                    <div class="text-muted small">Doses Taken Today</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+            <div class="d-flex align-items-center">
+                <div class="p-3 rounded-circle bg-info bg-opacity-10 text-info-emphasis me-3">
+                    <i class="bi bi-arrow-repeat fs-4"></i>
+                </div>
+                <div>
+                    <div class="fs-4 fw-bolder text-dark">{{ total_refills }}</div>
+                    <div class="text-muted small">Refills Recorded</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+            <div class="d-flex align-items-center">
+                <div class="p-3 rounded-circle bg-warning bg-opacity-10 text-warning-emphasis me-3">
+                    <i class="bi bi-arrow-counterclockwise fs-4"></i>
+                </div>
+                <div>
+                    <div class="fs-4 fw-bolder text-dark">{{ total_reversals }}</div>
+                    <div class="text-muted small">Dose Reversals</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 14-Day Adherence Trend -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 p-3 p-md-4 bg-white">
+    <h6 class="fw-bold text-dark mb-3">
+        <i class="bi bi-graph-up-arrow text-primary me-2"></i>Doses Taken — Last 14 Days
+    </h6>
+    <div style="position: relative; height: 220px;">
+        <canvas id="adherenceTrendChart"></canvas>
+    </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 p-3 bg-white">
+    <form method="GET" action="{{ url_for('main.history') }}" class="row g-2 align-items-center">
+        <div class="col-md-4">
+            <label class="form-label small fw-semibold text-secondary mb-1">Filter by Person:</label>
+            <select name="profile_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All Family Members</option>
+                {% for p in profiles %}
+                <option value="{{ p.id }}" {% if selected_profile_id == p.id %}selected{% endif %}>{{ p.name }} ({{ p.relationship }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small fw-semibold text-secondary mb-1">Filter by Action:</label>
+            <select name="action" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All Actions</option>
+                <option value="increment" {% if selected_action == 'increment' %}selected{% endif %}>Doses Taken (+)</option>
+                <option value="decrement" {% if selected_action == 'decrement' %}selected{% endif %}>Doses Reversed (-)</option>
+                <option value="refill" {% if selected_action == 'refill' %}selected{% endif %}>Inventory Refills</option>
+            </select>
+        </div>
+        <div class="col-md-4 d-flex align-items-end gap-2 mt-md-4">
+            <button type="submit" class="btn btn-sm btn-primary rounded-pill px-3">Apply Filter</button>
+            {% if selected_profile_id or selected_action %}
+            <a href="{{ url_for('main.history') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Clear Filters</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Logs Table -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header bg-white border-0 pt-4 px-4 pb-2 d-flex justify-content-between align-items-center">
+        <h5 class="fw-bold text-dark mb-0">
+            <i class="bi bi-journal-text text-primary me-2"></i>Audit Trail
+        </h5>
+        <span class="badge bg-light text-secondary border">{{ logs|length }} log entry(ies)</span>
+    </div>
+    <div class="card-body p-0">
+        {% if logs %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4 py-3 text-secondary text-uppercase small">Date & Time</th>
+                        <th class="py-3 text-secondary text-uppercase small">Person</th>
+                        <th class="py-3 text-secondary text-uppercase small">Medication</th>
+                        <th class="py-3 text-secondary text-uppercase small">Action</th>
+                        <th class="py-3 text-secondary text-uppercase small">Change</th>
+                        <th class="pe-4 py-3 text-secondary text-uppercase small">Log Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="ps-4 text-nowrap">
+                            <span class="fw-semibold text-dark">{{ log.timestamp|local_time('%b %d, %Y') }}</span>
+                            <span class="text-muted small d-block">{{ log.timestamp|local_time('%I:%M %p') }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2">
+                                <i class="bi bi-person-fill me-1"></i>{{ log.medication_ref.person.name }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="fw-bold text-dark">{{ log.medication_ref.name }}</div>
+                            <span class="text-muted small">{{ log.medication_ref.genre }}</span>
+                        </td>
+                        <td>
+                            {% if log.action == 'increment' %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1">
+                                <i class="bi bi-check-circle-fill me-1"></i>Dose Taken
+                            </span>
+                            {% elif log.action == 'decrement' %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Dose Reversed
+                            </span>
+                            {% elif log.action == 'refill' %}
+                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2 py-1">
+                                <i class="bi bi-arrow-repeat me-1"></i>Inventory Refill
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ log.action }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="fw-bold text-dark">
+                                {% if log.action == 'increment' %}+{{ log.pills_changed }} pill{% elif log.action == 'decrement' %}-{{ log.pills_changed }} pill{% else %}+{{ log.pills_changed }} pills{% endif %}
+                            </span>
+                        </td>
+                        <td class="pe-4 text-muted small">
+                            {{ log.notes or '-' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-journal-x fs-1 d-block mb-2 text-secondary opacity-50"></i>
+            <h5 class="fw-semibold">No logs match your filter.</h5>
+            <p class="small text-muted mb-0">Try clearing filters or logging doses from the dashboard.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('adherenceTrendChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: {{ chart_labels|tojson }},
+            datasets: [{
+                label: 'Doses Taken',
+                data: {{ chart_data|tojson }},
+                backgroundColor: 'rgba(13, 110, 253, 0.55)',
+                borderRadius: 6,
+                maxBarThickness: 28
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

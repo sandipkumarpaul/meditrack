@@ -1,0 +1,663 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - MediTrack{% endblock %}
+
+{% block content %}
+<!-- Dashboard Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <div>
+        <h2 class="fw-bold mb-1 text-dark">
+            <i class="bi bi-heart-pulse-fill text-danger me-2"></i>Household Medication Tracker
+        </h2>
+        <p class="text-muted mb-0">
+            <i class="bi bi-calendar3 me-1"></i> Today is <strong class="text-dark">{{ today_date }}</strong> &bull; {{ total_meds_count }} tracked medication(s)
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-outline-primary rounded-pill px-3 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#addPersonModal">
+            <i class="bi bi-person-plus-fill me-1"></i> Add Person
+        </button>
+        <button class="btn btn-primary rounded-pill px-3 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#addMedModal">
+            <i class="bi bi-plus-circle-fill me-1"></i> Add Medication
+        </button>
+        <a href="{{ url_for('main.export_summary') }}" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold shadow-sm">
+            <i class="bi bi-printer-fill me-1"></i> Doctor Summary
+        </a>
+        <div class="dropdown">
+            <button class="btn btn-outline-success rounded-pill px-3 fw-semibold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-file-earmark-spreadsheet-fill me-1"></i> Download Sheet
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3">
+                <li>
+                    <a class="dropdown-item py-2 small" href="{{ url_for('main.export_history_excel') }}">
+                        <i class="bi bi-file-earmark-excel-fill text-success me-2"></i>Download Excel (.xlsx)
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item py-2 small" href="{{ url_for('main.export_history_csv') }}">
+                        <i class="bi bi-filetype-csv text-primary me-2"></i>Download CSV
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider my-1"></li>
+                <li>
+                    <a class="dropdown-item py-2 small" href="{{ url_for('main.history') }}">
+                        <i class="bi bi-clock-history text-secondary me-2"></i>View Full History
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Low Stock Notification Banner -->
+{% if low_stock_meds %}
+<div class="alert alert-danger shadow-sm rounded-4 border-0 mb-4 p-3 p-md-4">
+    <div class="d-flex align-items-start">
+        <div class="fs-1 text-danger me-3 lh-1">
+            <i class="bi bi-exclamation-octagon-fill"></i>
+        </div>
+        <div class="flex-grow-1">
+            <h5 class="alert-heading fw-bold mb-1">Prescription Refill Alert!</h5>
+            <p class="mb-2 text-danger-emphasis">
+                The following active medication(s) have reached or fallen below their low-stock safety threshold:
+            </p>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                {% for item in low_stock_meds %}
+                <div class="badge bg-white text-danger border border-danger p-2 d-flex align-items-center gap-2 rounded-3 shadow-xs">
+                    <span class="fw-bold">{{ item.med.name }}</span>
+                    <span class="text-muted">({{ item.profile.name }})</span>
+                    <span class="badge bg-danger text-white">{{ item.med.total_stock }} pills left</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 btn-quick-refill" data-id="{{ item.med.id }}" data-amount="30">
+                        <i class="bi bi-arrow-repeat me-1"></i>+30 Refill
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Medication Search / Filter -->
+{% if total_meds_count > 0 %}
+<div class="mb-3">
+    <div class="input-group shadow-sm">
+        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" id="medSearchInput" class="form-control border-start-0" placeholder="Search medications by name, category, or doctor...">
+    </div>
+</div>
+{% endif %}
+
+<!-- Family Member Filter Tabs -->
+{% if profiles|length > 1 %}
+<div class="mb-4">
+    <ul class="nav nav-pills gap-2 bg-white p-2 rounded-4 shadow-sm border">
+        <li class="nav-item">
+            <a class="nav-link rounded-pill fw-semibold {% if not selected_profile_id %}active{% else %}text-secondary{% endif %}" href="{{ url_for('main.dashboard') }}">
+                <i class="bi bi-people-fill me-1"></i> All Members ({{ profiles|length }})
+            </a>
+        </li>
+        {% for p in profiles %}
+        <li class="nav-item">
+            <a class="nav-link rounded-pill fw-semibold {% if selected_profile_id == p.id %}active{% else %}text-secondary{% endif %}" href="{{ url_for('main.dashboard', profile_id=p.id) }}">
+                <i class="bi bi-person me-1"></i> {{ p.name }}
+                <span class="badge {% if selected_profile_id == p.id %}bg-white text-primary{% else %}bg-secondary-subtle text-secondary{% endif %} rounded-pill ms-1">{{ p.medications|length }}</span>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- Profile Sections -->
+{% if profiles %}
+    {% for profile in profiles %}
+    {% if not selected_profile_id or selected_profile_id == profile.id %}
+    <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+        <div class="card-header bg-white border-0 pt-4 px-4 pb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center">
+                <div class="p-2 rounded-3 bg-primary bg-opacity-10 text-primary me-3">
+                    <i class="bi bi-person-heart fs-3"></i>
+                </div>
+                <div>
+                    <h4 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                        {{ profile.name }}
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6 fw-normal">
+                            {{ profile.relationship }}
+                        </span>
+                    </h4>
+                    <span class="text-muted small">
+                        {{ profile.medications|length }} tracked medication(s)
+                        {% if profile.notes %} &bull; <span class="fst-italic text-secondary">{{ profile.notes }}</span>{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addMedModal" onclick="document.getElementById('modal_profile_id').value='{{ profile.id }}'">
+                    <i class="bi bi-plus-lg me-1"></i> Add Med for {{ profile.name }}
+                </button>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-light rounded-circle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Profile Options">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3">
+                        <li>
+                            <button type="button" class="dropdown-item text-danger small" data-bs-toggle="modal" data-bs-target="#deleteProfileModal{{ profile.id }}">
+                                <i class="bi bi-trash me-2"></i>Delete Profile
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body px-4 pb-4 pt-2">
+            {% if profile.medications %}
+            <div class="row g-4">
+                {% for med in profile.medications %}
+                <div class="col-lg-6 col-xl-4">
+                    <div class="card h-100 border rounded-4 p-3 medication-card shadow-sm {% if not med.is_active %}is-archived border-secondary-subtle{% endif %}">
+                        <!-- Top details and actions -->
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="flex-grow-1 me-2">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <h5 class="fw-bold mb-0 text-dark">{{ med.name }}</h5>
+                                    {% if not med.is_active %}
+                                    <span class="badge bg-secondary">Archived</span>
+                                    {% endif %}
+                                    <span id="schedule-badge-{{ med.id }}" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle {% if not med.is_behind_schedule %}d-none{% endif %}" title="Fewer doses logged today than expected by this hour">
+                                        <i class="bi bi-exclamation-circle me-1"></i>Behind Schedule
+                                    </span>
+                                </div>
+                                <div class="mt-1 d-flex flex-wrap gap-1">
+                                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle genre-badge">
+                                        <i class="bi bi-tag-fill me-1"></i>{{ med.genre }}
+                                    </span>
+                                    {% for slot in med.time_slots_list %}
+                                    <span class="badge {% if slot == 'Morning' %}bg-warning-subtle text-dark border-warning-subtle{% elif slot == 'Afternoon' %}bg-warning text-dark border-warning{% elif slot == 'Evening' %}bg-danger-subtle text-danger-emphasis border-danger-subtle{% elif slot in ['Night', 'Bedtime'] %}bg-primary-subtle text-primary border-primary-subtle{% else %}bg-secondary-subtle text-secondary border-secondary-subtle{% endif %} time-badge">
+                                        {% if slot == 'Morning' %}<i class="bi bi-sunrise me-1"></i>{% elif slot == 'Afternoon' %}<i class="bi bi-sun me-1"></i>{% elif slot == 'Evening' %}<i class="bi bi-sunset me-1"></i>{% elif slot in ['Night', 'Bedtime'] %}<i class="bi bi-moon-stars me-1"></i>{% else %}<i class="bi bi-clock me-1"></i>{% endif %}
+                                        {{ slot }}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <!-- Menu: Edit / Archive / Delete -->
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link text-muted p-1" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots fs-5"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3">
+                                    <li>
+                                        <button class="dropdown-item small" type="button" data-bs-toggle="modal" data-bs-target="#editMedModal{{ med.id }}">
+                                            <i class="bi bi-pencil me-2 text-primary"></i>Edit Medication
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <form method="POST" action="{{ url_for('main.toggle_archive_medication', med_id=med.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="dropdown-item small">
+                                                <i class="bi bi-archive me-2 text-secondary"></i>
+                                                {% if med.is_active %}Archive Course{% else %}Make Active{% endif %}
+                                            </button>
+                                        </form>
+                                    </li>
+                                    <li><hr class="dropdown-divider my-1"></li>
+                                    <li>
+                                        <button type="button" class="dropdown-item text-danger small" data-bs-toggle="modal" data-bs-target="#deleteMedModal{{ med.id }}">
+                                            <i class="bi bi-trash me-2"></i>Delete
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Instructions & Doctor Info -->
+                        {% if med.instructions %}
+                        <div class="text-muted small mb-2 d-flex align-items-center">
+                            <i class="bi bi-info-circle text-primary me-2"></i>
+                            <span>{{ med.instructions }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if med.prescribing_doctor %}
+                        <div class="text-muted small mb-2">
+                            <i class="bi bi-hospital text-secondary me-1"></i>
+                            <span>{{ med.prescribing_doctor }}</span>
+                        </div>
+                        {% endif %}
+
+                        <!-- Big Touch-Friendly Stepper Controller with Adherence Bar -->
+                        <div class="bg-light rounded-4 p-3 my-2 border">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <!-- Decrement Button -->
+                                <button type="button" 
+                                        class="btn btn-outline-danger btn-stepper fw-bold shadow-sm" 
+                                        data-action="decrement" 
+                                        data-id="{{ med.id }}"
+                                        aria-label="Decrease pill count for {{ med.name }}"
+                                        title="Undo pill dose">
+                                    <i class="bi bi-dash-lg"></i>
+                                </button>
+
+                                <!-- Dose Taken Count Display -->
+                                <div class="text-center px-2">
+                                    <div class="dosage-number {% if med.pills_taken_today >= med.dosage_target %}text-success{% else %}text-primary{% endif %}" id="taken-count-{{ med.id }}">
+                                        {{ med.pills_taken_today }}
+                                    </div>
+                                    <div class="text-muted small fw-semibold">
+                                        of <span id="target-count-{{ med.id }}">{{ med.dosage_target }}</span> taken today
+                                    </div>
+                                </div>
+
+                                <!-- Increment Button -->
+                                <button type="button" 
+                                        class="btn btn-outline-success btn-stepper fw-bold shadow-sm" 
+                                        data-action="increment" 
+                                        data-id="{{ med.id }}"
+                                        aria-label="Take dose for {{ med.name }}"
+                                        title="Log dose taken">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+
+                            <!-- Visual Adherence Progress Bar -->
+                            <div class="progress adherence-progress-container" style="height: 7px;">
+                                <div class="progress-bar {% if med.adherence_percentage >= 100 %}bg-success{% else %}bg-primary{% endif %}" 
+                                     id="progress-bar-{{ med.id }}" 
+                                     role="progressbar" 
+                                     style="width: {{ med.adherence_percentage }}%;"
+                                     aria-valuenow="{{ med.adherence_percentage }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Footer: Inventory & Quick Refill -->
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                            <div>
+                                <span class="small text-muted d-block" style="font-size: 0.75rem;">Inventory Stock:</span>
+                                <span class="badge {% if med.is_low_stock %}bg-danger text-white shadow-sm{% else %}bg-light text-dark border{% endif %}" id="stock-count-{{ med.id }}">
+                                    {% if med.is_low_stock %}<i class="bi bi-exclamation-triangle-fill me-1"></i>{% endif %}
+                                    {{ med.total_stock }} pills {% if med.is_low_stock %}(Low){% endif %}
+                                </span>
+                            </div>
+
+                            <!-- Quick Refill Button -->
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1 btn-quick-refill" data-id="{{ med.id }}" data-amount="30" title="Quick Refill +30 Pills">
+                                    <i class="bi bi-arrow-repeat text-success me-1"></i>+30 Refill
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split rounded-pill" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="visually-hidden">Toggle Refill</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3">
+                                    <li><button class="dropdown-item small btn-quick-refill" data-id="{{ med.id }}" data-amount="60">+60 Pills</button></li>
+                                    <li><button class="dropdown-item small btn-quick-refill" data-id="{{ med.id }}" data-amount="90">+90 Pills</button></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Medication Modal for this med -->
+                <div class="modal fade" id="editMedModal{{ med.id }}" tabindex="-1" aria-labelledby="editMedModalLabel{{ med.id }}" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content rounded-4 border-0 shadow">
+                            <form method="POST" action="{{ url_for('main.edit_medication', med_id=med.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="modal-header bg-light">
+                                    <h5 class="modal-title fw-bold" id="editMedModalLabel{{ med.id }}">Edit {{ med.name }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">Medication Name</label>
+                                        <input type="text" name="name" class="form-control" value="{{ med.name }}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">Genre / Category</label>
+                                        <input type="text" name="genre" class="form-control" value="{{ med.genre }}" list="genre-options" required>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label fw-semibold">Daily Dose (Pills)</label>
+                                            <input type="number" name="dosage_target" class="form-control" value="{{ med.dosage_target }}" min="1" required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label fw-semibold">Total Stock</label>
+                                            <input type="number" name="total_stock" class="form-control" value="{{ med.total_stock }}" min="0" required>
+                                            <div class="form-text small text-muted">Pills currently left in bottle/strip</div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-12 mb-3">
+                                            <label class="form-label fw-semibold">Low Stock Threshold</label>
+                                            <input type="number" name="low_stock_threshold" class="form-control" value="{{ med.low_stock_threshold }}" min="1" required>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">Prescribed Dose Times <small class="text-muted fw-normal">(Select all that apply)</small></label>
+                                        <div class="d-flex flex-wrap gap-2 p-2 bg-light rounded-3 border">
+                                            <div class="form-check form-check-inline m-0">
+                                                <input class="form-check-input" type="checkbox" name="time_slots" id="edit_time_morning_{{ med.id }}" value="Morning" {% if 'Morning' in med.time_slots_list %}checked{% endif %}>
+                                                <label class="form-check-label fw-semibold small" for="edit_time_morning_{{ med.id }}">
+                                                    <i class="bi bi-sunrise text-warning me-1"></i>Morning
+                                                </label>
+                                            </div>
+                                            <div class="form-check form-check-inline m-0">
+                                                <input class="form-check-input" type="checkbox" name="time_slots" id="edit_time_afternoon_{{ med.id }}" value="Afternoon" {% if 'Afternoon' in med.time_slots_list %}checked{% endif %}>
+                                                <label class="form-check-label fw-semibold small" for="edit_time_afternoon_{{ med.id }}">
+                                                    <i class="bi bi-sun text-warning-emphasis me-1"></i>Afternoon
+                                                </label>
+                                            </div>
+                                            <div class="form-check form-check-inline m-0">
+                                                <input class="form-check-input" type="checkbox" name="time_slots" id="edit_time_evening_{{ med.id }}" value="Evening" {% if 'Evening' in med.time_slots_list %}checked{% endif %}>
+                                                <label class="form-check-label fw-semibold small" for="edit_time_evening_{{ med.id }}">
+                                                    <i class="bi bi-sunset text-danger me-1"></i>Evening
+                                                </label>
+                                            </div>
+                                            <div class="form-check form-check-inline m-0">
+                                                <input class="form-check-input" type="checkbox" name="time_slots" id="edit_time_night_{{ med.id }}" value="Night" {% if 'Night' in med.time_slots_list or 'Bedtime' in med.time_slots_list %}checked{% endif %}>
+                                                <label class="form-check-label fw-semibold small" for="edit_time_night_{{ med.id }}">
+                                                    <i class="bi bi-moon-stars text-primary me-1"></i>Night
+                                                </label>
+                                            </div>
+                                            <div class="form-check form-check-inline m-0">
+                                                <input class="form-check-input" type="checkbox" name="time_slots" id="edit_time_prn_{{ med.id }}" value="As Needed" {% if 'As Needed' in med.time_slots_list %}checked{% endif %}>
+                                                <label class="form-check-label fw-semibold small" for="edit_time_prn_{{ med.id }}">
+                                                    <i class="bi bi-clock-history text-secondary me-1"></i>As Needed
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">Instructions / Condition</label>
+                                        <input type="text" name="instructions" class="form-control" value="{{ med.instructions or '' }}" placeholder="e.g. Take with food">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">By Doctor / Hospital (Optional)</label>
+                                        <input type="text" name="prescribing_doctor" class="form-control" value="{{ med.prescribing_doctor or '' }}" placeholder="e.g. Dr. Watson / Square Hospital">
+                                    </div>
+                                </div>
+                                <div class="modal-footer bg-light">
+                                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-primary rounded-pill fw-semibold">Save Changes</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Delete Medication Confirmation Modal (type-to-confirm) -->
+                <div class="modal fade" id="deleteMedModal{{ med.id }}" tabindex="-1" aria-labelledby="deleteMedModalLabel{{ med.id }}" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content rounded-4 border-0 shadow">
+                            <form method="POST" action="{{ url_for('main.delete_medication', med_id=med.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="modal-header bg-danger-subtle">
+                                    <h5 class="modal-title fw-bold text-danger" id="deleteMedModalLabel{{ med.id }}">
+                                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Delete {{ med.name }}?
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p class="text-secondary">
+                                        This permanently deletes <strong>{{ med.name }}</strong> and its <strong>entire dose history</strong> for this medication. This cannot be undone.
+                                    </p>
+                                    <label class="form-label small fw-semibold">Type <code>{{ med.name }}</code> to confirm:</label>
+                                    <input type="text" name="confirm_text" class="form-control type-to-confirm-input" data-expected="{{ med.name }}" autocomplete="off" placeholder="{{ med.name }}">
+                                </div>
+                                <div class="modal-footer bg-light">
+                                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-danger rounded-pill fw-semibold type-to-confirm-submit" disabled>
+                                        <i class="bi bi-trash me-1"></i>Delete Permanently
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted border rounded-4 bg-light">
+                <i class="bi bi-capsule fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                <h6 class="fw-semibold">No active medications logged for {{ profile.name }}.</h6>
+                <p class="small text-muted mb-3">Click below to add a prescription or vitamin supplement.</p>
+                <button class="btn btn-outline-primary btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#addMedModal" onclick="document.getElementById('modal_profile_id').value='{{ profile.id }}'">
+                    <i class="bi bi-plus-circle me-1"></i> Add Medication
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Delete Profile Confirmation Modal (type-to-confirm) -->
+    <div class="modal fade" id="deleteProfileModal{{ profile.id }}" tabindex="-1" aria-labelledby="deleteProfileModalLabel{{ profile.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <form method="POST" action="{{ url_for('main.delete_profile', profile_id=profile.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="modal-header bg-danger-subtle">
+                        <h5 class="modal-title fw-bold text-danger" id="deleteProfileModalLabel{{ profile.id }}">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>Delete {{ profile.name }}'s Profile?
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-secondary">
+                            This permanently deletes <strong>{{ profile.name }}</strong> and <strong>all {{ profile.medications|length }} medication(s)</strong> with their entire dose history. This cannot be undone.
+                        </p>
+                        <label class="form-label small fw-semibold">Type <code>{{ profile.name }}</code> to confirm:</label>
+                        <input type="text" name="confirm_text" class="form-control type-to-confirm-input" data-expected="{{ profile.name }}" autocomplete="off" placeholder="{{ profile.name }}">
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger rounded-pill fw-semibold type-to-confirm-submit" disabled>
+                            <i class="bi bi-trash me-1"></i>Delete Permanently
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+{% else %}
+    <div class="alert alert-info text-center py-5 rounded-4 shadow-sm border-0">
+        <i class="bi bi-people fs-1 d-block mb-2 text-primary"></i>
+        <h4 class="fw-bold">No family profiles created yet!</h4>
+        <p class="text-muted">Get started by creating profiles for your household (e.g. Self, Mom, Dad, or Child).</p>
+        <button class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#addPersonModal">
+            <i class="bi bi-person-plus-fill me-1"></i> Add First Profile
+        </button>
+    </div>
+{% endif %}
+
+<!-- Add Person Modal -->
+<div class="modal fade" id="addPersonModal" tabindex="-1" aria-labelledby="addPersonModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <form method="POST" action="{{ url_for('main.add_profile') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold" id="addPersonModalLabel">Add Family Member Profile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Person's Name</label>
+                        <input type="text" name="name" class="form-control" placeholder="e.g. Sarah, Dad, Emma" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Relationship</label>
+                        <select name="relationship" class="form-select">
+                            <option value="Self">Self</option>
+                            <option value="Mom">Mom</option>
+                            <option value="Dad">Dad</option>
+                            <option value="Spouse">Spouse</option>
+                            <option value="Son">Son</option>
+                            <option value="Daughter">Daughter</option>
+                            <option value="Child">Child</option>
+                            <option value="Grandparent">Grandparent</option>
+                            <option value="Family Member">Family Member</option>
+                            <option value="Roommate">Roommate</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Date of Birth (Optional)</label>
+                        <input type="date" name="date_of_birth" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Notes / Allergies (Optional)</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="e.g. Penicillin allergy, diabetic"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary rounded-pill fw-semibold">Add Person</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Medication Modal -->
+<div class="modal fade" id="addMedModal" tabindex="-1" aria-labelledby="addMedModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <form method="POST" action="{{ url_for('main.add_medication') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold" id="addMedModalLabel">Add New Medication</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- MedEx BD Auto-Fetch Panel -->
+                    <div class="card border-0 bg-primary bg-opacity-10 rounded-3 p-3 mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-primary small">
+                                <i class="bi bi-magic me-1"></i> Auto-Fill from MedEx (Bangladesh)
+                            </span>
+                            <span class="badge bg-white text-primary border border-primary-subtle" style="font-size: 0.7rem;">Official Database</span>
+                        </div>
+                        <div class="input-group">
+                            <input type="text" id="medex_search_query" class="form-control form-control-sm" placeholder="Search brand (e.g. Napa, Seclo, Monas, Sergel, Alatrol)...">
+                            <button class="btn btn-primary btn-sm fw-semibold" type="button" id="btn_medex_search">
+                                <span id="medex_spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                                <i class="bi bi-search me-1" id="medex_search_icon"></i>Find on MedEx
+                            </button>
+                        </div>
+                        <!-- Live Search Results List -->
+                        <div id="medex_results_box" class="mt-2 d-none">
+                            <div class="small fw-semibold text-secondary mb-1">Matching Medicines (click to autofill):</div>
+                            <div id="medex_results_list" class="list-group list-group-flush shadow-sm rounded-3 bg-white" style="max-height: 180px; overflow-y: auto;">
+                            </div>
+                        </div>
+                        <!-- Autofill Confirmation Alert -->
+                        <div id="medex_info_alert" class="alert alert-success py-2 px-3 small rounded-3 mt-2 d-none mb-0">
+                            <i class="bi bi-check-circle-fill me-1"></i>
+                            <span id="medex_info_text"></span>
+                        </div>
+                        <!-- Packaging suggestions -->
+                        <div id="medex_packaging_suggestions" class="mt-2 d-none">
+                            <span class="small text-muted d-block mb-1">Detected Pack Sizes (click to set total stock):</span>
+                            <div id="medex_packaging_buttons" class="d-flex flex-wrap gap-1"></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Assign to Person</label>
+                        <select name="profile_id" id="modal_profile_id" class="form-select" required>
+                            {% for p in profiles %}
+                            <option value="{{ p.id }}">{{ p.name }} ({{ p.relationship }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Medication Name</label>
+                        <input type="text" name="name" id="med_add_name" class="form-control" placeholder="e.g. Amoxicillin, Lisinopril, Multivitamin" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Genre / Category</label>
+                        <input type="text" name="genre" id="med_add_genre" class="form-control" placeholder="e.g. Antibiotic, Pain Relief, Supplement" list="genre-options" required>
+                        <datalist id="genre-options">
+                            {% for genre in common_genres %}
+                            <option value="{{ genre }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">Daily Dose Target</label>
+                            <input type="number" name="dosage_target" id="med_add_dosage_target" class="form-control" value="1" min="1" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">Total Stock</label>
+                            <input type="number" name="total_stock" id="med_add_total_stock" class="form-control" value="30" min="0" required>
+                            <div class="form-text small text-muted">Pills currently left in bottle/strip</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">Low Stock Alert</label>
+                            <input type="number" name="low_stock_threshold" id="med_add_low_stock_threshold" class="form-control" value="5" min="1" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold d-flex justify-content-between align-items-center">
+                            <span>Prescribed Dose Times <small class="text-muted fw-normal">(Select all that apply)</small></span>
+                            <span class="badge bg-light text-secondary border" id="add_selected_slots_badge">1 slot selected</span>
+                        </label>
+                        <div class="d-flex flex-wrap gap-2 p-2 bg-light rounded-3 border" id="add_time_slots_container">
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input add-time-slot-checkbox" type="checkbox" name="time_slots" id="add_time_morning" value="Morning" checked>
+                                <label class="form-check-label fw-semibold small" for="add_time_morning">
+                                    <i class="bi bi-sunrise text-warning me-1"></i>Morning
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input add-time-slot-checkbox" type="checkbox" name="time_slots" id="add_time_afternoon" value="Afternoon">
+                                <label class="form-check-label fw-semibold small" for="add_time_afternoon">
+                                    <i class="bi bi-sun text-warning-emphasis me-1"></i>Afternoon
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input add-time-slot-checkbox" type="checkbox" name="time_slots" id="add_time_evening" value="Evening">
+                                <label class="form-check-label fw-semibold small" for="add_time_evening">
+                                    <i class="bi bi-sunset text-danger me-1"></i>Evening
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input add-time-slot-checkbox" type="checkbox" name="time_slots" id="add_time_night" value="Night">
+                                <label class="form-check-label fw-semibold small" for="add_time_night">
+                                    <i class="bi bi-moon-stars text-primary me-1"></i>Night
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input add-time-slot-checkbox" type="checkbox" name="time_slots" id="add_time_prn" value="As Needed">
+                                <label class="form-check-label fw-semibold small" for="add_time_prn">
+                                    <i class="bi bi-clock-history text-secondary me-1"></i>As Needed
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Instructions / Condition (Optional)</label>
+                        <input type="text" name="instructions" id="med_add_instructions" class="form-control" placeholder="e.g. Take with a glass of water after breakfast">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">By Doctor / Hospital (Optional)</label>
+                        <input type="text" name="prescribing_doctor" id="med_add_prescribing_doctor" class="form-control" placeholder="e.g. Square Hospital / Dr. Davis">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary rounded-pill fw-semibold">Save Medication</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

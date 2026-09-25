@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Doctor Visit Summary - MediTrack{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 no-print">
+    <div>
+        <h2 class="fw-bold mb-1 text-dark">
+            <i class="bi bi-file-earmark-medical-fill text-primary me-2"></i>Doctor Visit & Prescription Summary
+        </h2>
+        <p class="text-muted mb-0">Clinical print-ready overview of active household medications for doctor appointments.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+            <i class="bi bi-printer-fill me-1"></i> Print / Save as PDF
+        </button>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white">
+    <!-- Header for Print and Screen -->
+    <div class="border-bottom pb-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h3 class="fw-bold text-primary mb-1">
+                <i class="bi bi-capsule-pill me-2"></i>MediTrack Household Medication Schedule
+            </h3>
+            <p class="text-muted mb-0">
+                Primary Account Holder: <strong class="text-dark">{{ current_user.username }}</strong> ({{ current_user.email }})
+            </p>
+        </div>
+        <div class="text-md-end">
+            <span class="badge bg-light text-dark border p-2 mb-1 d-inline-block">
+                <i class="bi bi-clock me-1"></i> Report Generated: {{ generated_date }}
+            </span>
+        </div>
+    </div>
+
+    {% for profile in profiles %}
+    <div class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+            <h4 class="fw-bold text-dark mb-0">
+                <i class="bi bi-person-fill text-primary me-2"></i>{{ profile.name }}
+                <span class="badge bg-secondary-subtle text-secondary border fs-6 fw-normal ms-2">{{ profile.relationship }}</span>
+            </h4>
+            <div class="text-muted small">
+                {% if profile.date_of_birth %}<strong>DOB:</strong> {{ profile.date_of_birth.strftime('%b %d, %Y') }} &bull; {% endif %}
+                <strong>Active Meds:</strong> {{ profile.active_medications()|length }}
+            </div>
+        </div>
+
+        {% if profile.notes %}
+        <div class="alert alert-warning py-2 px-3 rounded-3 mb-3 small d-flex align-items-center">
+            <i class="bi bi-exclamation-triangle-fill text-warning-emphasis me-2"></i>
+            <div><strong>Medical Notes & Allergies:</strong> {{ profile.notes }}</div>
+        </div>
+        {% endif %}
+
+        {% if profile.active_medications() %}
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 25%;">Medication</th>
+                        <th style="width: 15%;">Category</th>
+                        <th style="width: 15%;">Daily Dosage</th>
+                        <th style="width: 15%;">Timing</th>
+                        <th style="width: 20%;">Instructions / Conditions</th>
+                        <th style="width: 10%;">Remaining Stock</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for med in profile.active_medications() %}
+                    <tr>
+                        <td>
+                            <strong class="text-dark">{{ med.name }}</strong>
+                            {% if med.prescribing_doctor %}
+                            <div class="text-muted small" style="font-size: 0.8rem;">
+                                <i class="bi bi-hospital me-1"></i>{{ med.prescribing_doctor }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-light text-dark border">{{ med.genre }}</span></td>
+                        <td><span class="fw-semibold">{{ med.dosage_target }} pill(s)/day</span></td>
+                        <td>
+                            {% for slot in med.time_slots_list %}
+                            <span class="badge bg-light text-dark border me-1">{{ slot }}</span>
+                            {% endfor %}
+                        </td>
+                        <td>{{ med.instructions or 'As directed' }}</td>
+                        <td class="text-center">
+                            <span class="badge {% if med.is_low_stock %}bg-danger text-white{% else %}bg-light text-dark border{% endif %}">
+                                {{ med.total_stock }} pills
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted small fst-italic">No active medications registered for {{ profile.name }}.</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <!-- Clinical Disclaimer -->
+    <div class="border-top pt-3 text-muted small mt-4">
+        <p class="mb-0">
+            <i class="bi bi-shield-lock me-1"></i>
+            This document is a patient-maintained medication summary intended for review by attending healthcare providers. Always consult a licensed medical professional before altering prescription regimens.
+        </p>
+    </div>
+</div>
+{% endblock %}

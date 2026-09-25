@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Notification Settings - MediTrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 col-xl-9">
+        <!-- Page Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div>
+                <h2 class="fw-bold mb-1 text-dark">
+                    <i class="bi bi-bell-fill text-primary me-2"></i>Notification Settings
+                </h2>
+                <p class="text-muted mb-0">Manage private, end-to-end encrypted Web Browser Push notifications and automated schedules.</p>
+            </div>
+            <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+                <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <!-- 1. Native Web Browser Push Card (End-to-End Encrypted) -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 pb-2">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-1">
+                            <i class="bi bi-shield-lock-fill text-primary me-2"></i>Web Browser Push Notifications
+                        </h5>
+                        <p class="text-muted small mb-0">
+                            <strong>100% Private & Encrypted:</strong> System alerts for Windows, Android, and iOS Safari home screen.
+                        </p>
+                    </div>
+                    <span id="pushStatusBadge" class="badge bg-secondary px-3 py-2 fs-7 rounded-pill">Checking...</span>
+                </div>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                    <button id="enablePushBtn" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm" onclick="PushClient.enablePush()">
+                        <i class="bi bi-bell me-1"></i> Enable on This Browser
+                    </button>
+                    <button id="testPushBtn" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold" onclick="PushClient.sendTestPush()" disabled>
+                        <i class="bi bi-send me-1"></i> Send Test Push
+                    </button>
+                    <span class="text-muted small ms-2">
+                        <i class="bi bi-phone me-1"></i><strong>{{ push_subscriptions_count }}</strong> device(s) registered for your account.
+                    </span>
+                </div>
+
+                <!-- iOS Safari Instruction Callout -->
+                <div class="p-3 bg-light rounded-3 border">
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-apple fs-4 text-dark me-2"></i>
+                        <div class="small">
+                            <strong class="text-dark">iPhone / iPad (iOS Safari) Note:</strong>
+                            <span class="text-muted">
+                                Apple enables push notifications when MediTrack is saved to your Home Screen.
+                                Tap the <strong>Share</strong> button <i class="bi bi-box-arrow-up"></i> in Safari, choose <strong>"Add to Home Screen"</strong>, then open MediTrack from your home screen and tap "Enable on This Browser".
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Family Member Reminder Preferences -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 pb-2">
+                <h5 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-people-fill text-primary me-2"></i>Family Member Reminder Schedules
+                </h5>
+                <p class="text-muted small mb-0">Choose which time-of-day reminders and stock alerts to receive for each family member.</p>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <div class="row g-3">
+                    {% for p in profiles %}
+                    <div class="col-12">
+                        <div class="border rounded-4 p-3 bg-white shadow-xs">
+                            <form method="POST" action="{{ url_for('main.save_profile_notification', profile_id=p.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-2 fw-bold" style="width: 40px; height: 40px;">
+                                            {{ p.name[0]|upper }}
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold mb-0 text-dark">{{ p.name }}</h6>
+                                            <span class="badge bg-light text-secondary border">{{ p.relationship }}</span>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
+                                        <i class="bi bi-check-lg me-1"></i> Save Preferences
+                                    </button>
+                                </div>
+
+                                <!-- Time Slot Toggles -->
+                                <div class="p-3 bg-light rounded-3 border">
+                                    <label class="form-label small fw-semibold d-block text-secondary mb-2">Notification Triggers for {{ p.name }}:</label>
+                                    <div class="d-flex flex-wrap gap-3">
+                                        <div class="form-check form-check-inline m-0">
+                                            <input class="form-check-input" type="checkbox" name="notify_morning" id="nm_{{ p.id }}" {% if p.notify_morning %}checked{% endif %}>
+                                            <label class="form-check-label small" for="nm_{{ p.id }}"><i class="bi bi-sunrise text-warning me-1"></i>Morning Dose</label>
+                                        </div>
+                                        <div class="form-check form-check-inline m-0">
+                                            <input class="form-check-input" type="checkbox" name="notify_afternoon" id="na_{{ p.id }}" {% if p.notify_afternoon %}checked{% endif %}>
+                                            <label class="form-check-label small" for="na_{{ p.id }}"><i class="bi bi-sun text-warning-emphasis me-1"></i>Afternoon Dose</label>
+                                        </div>
+                                        <div class="form-check form-check-inline m-0">
+                                            <input class="form-check-input" type="checkbox" name="notify_night" id="nn_{{ p.id }}" {% if p.notify_night %}checked{% endif %}>
+                                            <label class="form-check-label small" for="nn_{{ p.id }}"><i class="bi bi-moon-stars text-primary me-1"></i>Night Dose</label>
+                                        </div>
+                                        <div class="form-check form-check-inline m-0">
+                                            <input class="form-check-input" type="checkbox" name="notify_low_stock" id="nl_{{ p.id }}" {% if p.notify_low_stock %}checked{% endif %}>
+                                            <label class="form-check-label small text-danger fw-semibold" for="nl_{{ p.id }}"><i class="bi bi-exclamation-triangle me-1"></i>Daily Low Stock</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Free Hosting Automation Guide (cron-job.org) -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 pb-2">
+                <h5 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-clock-history text-primary me-2"></i>Free Hosting Automated Scheduler (cron-job.org)
+                </h5>
+                <p class="text-muted small mb-0">How to wake up your free server (Render, Glitch, etc.) and deliver reminders on time.</p>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <p class="text-secondary small mb-3">
+                    Free cloud hosts enter sleep mode when idle. To wake your website at 8:00 AM, 2:00 PM, and 9:00 PM to send reminders, use a free timer like <strong><a href="https://cron-job.org" target="_blank" rel="noopener">cron-job.org</a></strong>.
+                </p>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold text-secondary">Your Automated Wake-up Webhook URL:</label>
+                    <div class="input-group">
+                        <input type="text" id="cronUrlInput" class="form-control bg-light text-muted font-monospace small" value="{{ cron_webhook_url }}" readonly>
+                        <button class="btn btn-outline-primary" type="button" onclick="copyCronUrl()">
+                            <i class="bi bi-clipboard me-1"></i> Copy URL
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle small mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Schedule Time</th>
+                                <th>Recommended Cron Expression</th>
+                                <th>Action Taken</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>08:00 AM</strong> (Morning)</td>
+                                <td><code>0 8 * * *</code></td>
+                                <td>Sends Morning dose push alerts for medications not yet logged today.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>02:00 PM</strong> (Afternoon)</td>
+                                <td><code>0 14 * * *</code></td>
+                                <td>Sends Afternoon dose push alerts for due medications.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>08:00 PM</strong> (Low Stock)</td>
+                                <td><code>0 20 * * *</code></td>
+                                <td>Sends daily low-stock alert for any medicine at or below safety threshold.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>09:30 PM</strong> (Night)</td>
+                                <td><code>30 21 * * *</code></td>
+                                <td>Sends Night dose push alerts for due medications.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/push-notifications.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize Web Push with public key from server
+    const vapidKey = {{ vapid_public_key|tojson }};
+    if (window.PushClient && vapidKey) {
+        window.PushClient.init(vapidKey);
+    }
+});
+
+function copyCronUrl() {
+    const input = document.getElementById('cronUrlInput');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+        if (window.showToast) {
+            window.showToast('Cron webhook URL copied to clipboard!', 'Copied', 'success');
+        } else {
+            alert('Copied to clipboard!');
+        }
+    });
+}
+</script>
+{% endblock %}

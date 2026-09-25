@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Create Account - MediTrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-3 mt-md-4">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <div class="d-inline-flex p-3 rounded-circle bg-success bg-opacity-10 text-success mb-3">
+                        <i class="bi bi-shield-check fs-1"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark">Create MediTrack Account</h3>
+                    <p class="text-muted small">Manage medication routines for your entire family safely.</p>
+                </div>
+
+                <form method="POST" action="{{ url_for('auth.signup') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-person"></i></span>
+                            <input type="text" name="username" class="form-control form-control-lg border-start-0 bg-light" placeholder="e.g. john_doe" required autofocus>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary">Email Address</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-envelope"></i></span>
+                            <input type="email" name="email" class="form-control form-control-lg border-start-0 bg-light" placeholder="e.g. john@example.com" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold text-secondary">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-lock"></i></span>
+                            <input type="password" name="password" class="form-control form-control-lg border-start-0 bg-light" placeholder="At least 6 characters" minlength="6" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold rounded-3 shadow-sm">
+                        <i class="bi bi-check2-circle me-1"></i> Register Account
+                    </button>
+                </form>
+
+                <div class="text-center mt-4 pt-2 border-top">
+                    <span class="text-muted small">Already registered?</span>
+                    <a href="{{ url_for('auth.login') }}" class="text-primary fw-semibold small text-decoration-none ms-1">Log In</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
