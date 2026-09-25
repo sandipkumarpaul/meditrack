@@ -2,6 +2,7 @@
 
 A self-hosted Flask web app for keeping track of a whole household's medicines: who takes what and when, whether today's doses have been taken, and when a bottle is about to run out.
 
+[![Tests](https://github.com/sandipkumarpaul/meditrack/actions/workflows/tests.yml/badge.svg)](https://github.com/sandipkumarpaul/meditrack/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3.x-000000?logo=flask&logoColor=white)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-ORM-D71F00)
@@ -74,8 +75,8 @@ In many households one person ends up managing medicines for parents, grandparen
 **Requirements:** Python 3.10+
 
 ```bash
-git clone https://github.com/<your-username>/<repo-name>.git
-cd <repo-name>
+git clone https://github.com/sandipkumarpaul/meditrack.git
+cd meditrack
 
 python -m venv venv
 # Windows: venv\Scripts\activate    macOS/Linux: source venv/bin/activate
